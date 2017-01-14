@@ -1,7 +1,7 @@
 ---
-title: "Another way to use wearable computing devices"
+title: "Just another way to use wearable computing devices"
 author: "Patrick Alex Freitas da Silva - patrickalex@gmail.com"
-date: "january 13th, 2017"
+date: "january, 2017"
 output: html_document
 ---
 
@@ -12,36 +12,171 @@ knitr::opts_chunk$set(echo = TRUE)
 ## Introduction
 
 The use of data from accelerometers on belt, forearm, arm and dumbell of 6 participants in order to evaluate the quality of the activities that had been done.
+The question is: are the activities being done with quality?
 
 ## Objective
 
-Use data and machine learning techniques in order to predict which activities had been done
+This work is intended to use data and machine learning techniques in order to predict the quality of the exercises that had been done inside the scope of this study, bases on the assumption that "if we want to predict **x** we should use data that is closely related to **x** as we possibly can" (Jeff Leek, What data should you use, Practiral Machine Learning).
+
+The **classe** variable in the training set is the outcome we tried to predict.
+The measured characteristics that we have, and might be most closely related to the outcome, are those related to the accelerometers sensors.
+We use these features to build a prediction model.
+
+Despite we know that we could use any of the other variables to make predictions, even use computation to create some features that might be useful for predicting the outcome that we care about, we deliberately did not make that effort. Our focus is to first evaluate only the relevance of these sensors in the task to build a prediction model to predict 20 different test cases.
 
 ## How the model was built
 
+We used the **caret** package in order to built the model.
+
 ## How cross validation was used
+
+In this study, we splited the training data into sub training data sets and combined it with caret's K-Fold cross validation mechanism.
 
 ## Prognosis about the expected out of sample error
 
+Random Forests are known for their accuracy in prediction, and overhead in terms of computation cost.
+We expect to get low out of sample errors and high accuracy by ajusting the parameters moderately, according to the references cited at the end of this study.
+
 ## Reasons for the choices made
 
+We know that ensamble methods always have a better accuracy but, for the sake of siplicity and completion in the available window time, we have chosen Random Forest.
+
 ## Prediction Assignment
+
 #### About the data set
-The data for this project came from 
+
+The data for this project came from [Groupware@LES][1] Human Activity Recognition research.
+We are immensely grateful for the sharing of their data.
 
 #### Loading the data training and testing set
+
 ```{r loadingDataSets}
-trainingSet <- read.csv('https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv')
-testSet     <- read.csv('https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv')
+#trainingSet <- read.csv('https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv')
+#testSet     <- read.csv('https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv')
+trainingSet <- read.csv('Data/pml-training.csv', na.strings=c("","NA","#DIV/0!"))
+testSet     <- read.csv('Data/pml-testing.csv', na.strings=c("","NA","#DIV/0!"))
 ```
 
-####
+#### Data Cleansing
+
+Removes features not related to the exercises.
+
+```{r dataCleansingNotRelated}
+
+trainingSet <- trainingSet[,-c(1:7)]
+testSet     <- testSet[,-c(1:7)]
+
+```
+
+Removes features that contain missing values (NA).
+
+```{r dataCleansingNA}
+
+trainingSet <- trainingSet[, colSums(is.na(trainingSet)) == 0]
+testSet     <- testSet[, colSums(is.na(testSet)) == 0]
+
+```
+
+#### Cross-Validation (Study Design)
+
+Cross-validation is a technique used to reduce out of sample errors. Using the training set (traininSet), we split it into (sub)training/test sets. Then we build a model on the (sub)training set, evaluate on the (sub)test set and repeat and average the estimated erros.
+
+This technique can be used for:
+* picking variables to include a model
+* picking the type of prediction function to use
+* picking the parameters in the prediction function
+* compare different predictors
+
+By doing this, we acctually leave the original test set completely isolated. It is never used in this process. When we finnaly apply our ultimate prediction algorithm to the test set, it will still be an unbiased measurement of what the out of sample accuracy will be.
+
+In this study, we used splited the training data into sub training data sets and combined it with caret's K-Fold cross validation mechanism.
+
+```{r crossValidation}
+set.seed(201701)
+
+library('caret')
+library('stats')
+
+flagSubTrainingSet  <- createDataPartition(trainingSet$classe, p = 0.75, list = FALSE)
+subTrainingSet      <- trainingSet[ flagSubTrainingSet, ]
+subTestingSet       <- trainingSet[-flagSubTrainingSet, ]
+
+```
+
+
+#### Algorithm
+
+Based on what we have learned in our classes about the prediction algorithms, we selected **Random Forest** just for the sake of practice.
+
+#### Parameters
+
+The trainControl function controls the computational nuances of the train function in the caret framework. The **"cv"** value stands for **cross validation**, in the first trainControl's parameter(**method**). The second parameter is either the number of folds or number of resampling iterations (source: Caret's package R Documentation). We used just 3-fold cross validation in order to reduce computation time.
+
+```{r algorithmRandomForest}
+
+ctrlRandomForestParams <- trainControl(method="cv", 3)
+predictiveModelRandomForest <- train(classe ~ ., data = subTrainingSet, method = "rf", trControl = ctrlRandomForestParams, ntree = 175)
+predictiveModelRandomForest
+
+```
+
+Now we have a **predictiveModelRandomForest**, shown above, tha is the model that we created with the parameters defined in **ctrlRandomForestParams**.
+
+#### Evaluation
+
+Estimation of the performance of the model on the validation data set:
+
+"Given two numeric vectors of data, the mean squared error and R-squared are calculated. For two factors, the overall agreement rate and Kappa are determined." (Cared's R Documentation for postResample function in caret framework)
+
+```{r evaluation}
+
+predictBasedOnRandomForestAlgorithm <- predict( predictiveModelRandomForest , subTestingSet)
+confusionMatrix(subTestingSet$classe, predictBasedOnRandomForestAlgorithm)
+
+```
+
+```{r accuracy}
+
+accuracy <- postResample(predictBasedOnRandomForestAlgorithm, subTestingSet$classe)
+accuracy
+
+```
+
+#### Out of Sample Error
+
+```{r outOfSampleError}
+
+confusionMatrix(subTestingSet$classe, predictBasedOnRandomForestAlgorithm)
+
+1 - as.numeric(confusionMatrix(subTestingSet$classe, predictBasedOnRandomForestAlgorithm)$overall[1])
+
+```
+
+#### Predicting the quality of the exercises
+
+Following our study design, explained in the **Cross-Validation** section, we apply the built model to the original test set that we had leaved completely isolated.
+
+```{r predictingWithTheBuiltModel}
+
+predict(predictiveModelRandomForest, testSet[, -length(names(testSet))])
+
+```
+
 
 
 #### References
 
 Ugulino, W.; Cardador, D.; Vega, K.; Velloso, E.; Milidiu, R.; Fuks, H. Wearable Computing: Accelerometers' Data Classification of Body Postures and Movements. Proceedings of 21st Brazilian Symposium on Artificial Intelligence. Advances in Artificial Intelligence - SBIA 2012. In: Lecture Notes in Computer Science. , pp. 52-61. Curitiba, PR: Springer Berlin / Heidelberg, 2012. ISBN 978-3-642-34458-9. DOI: 10.1007/978-3-642-34459-6_6.
 
+Efron (1983). “Estimating the error rate of a prediction rule: improvement on cross-validation”. Journal of the American Statistical Association, 78(382):316-331
+
+Bergstra and Bengio (2012), “Random Search for Hyper-Parameter Optimization”, Journal of Machine Learning Research, 13(Feb):281-305
+
+Kuhn (2014), “Futility Analysis in the Cross-Validation of Machine Learning Models” http://arxiv.org/abs/1405.6974,
+
+Kuhn (2008), “Building Predictive Models in R Using the caret” (http://www.jstatsoft.org/article/view/v028i05/v28i05.pdf)
+
+Kvalseth. Cautionary note about R^2. American Statistician (1985) vol. 39 (4) pp. 279-285
 
 
 [2]:http://groupware.les.inf.puc-rio.br/har#ixzz4VdrEh3GS
