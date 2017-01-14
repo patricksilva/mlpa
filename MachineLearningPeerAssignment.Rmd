@@ -82,14 +82,15 @@ testSet     <- testSet[, colSums(is.na(testSet)) == 0]
 Cross-validation is a technique used to reduce out of sample errors. Using the training set (traininSet), we split it into (sub)training/test sets. Then we build a model on the (sub)training set, evaluate on the (sub)test set and repeat and average the estimated erros.
 
 This technique can be used for:
-* picking variables to include a model
-* picking the type of prediction function to use
-* picking the parameters in the prediction function
-* compare different predictors
 
-By doing this, we acctually leave the original test set completely isolated. It is never used in this process. When we finnaly apply our ultimate prediction algorithm to the test set, it will still be an unbiased measurement of what the out of sample accuracy will be.
+  * picking variables to include a model
+  * picking the type of prediction function to use
+  * picking the parameters in the prediction function
+  * compare different predictors
 
-In this study, we used splited the training data into sub training data sets and combined it with caret's K-Fold cross validation mechanism.
+By doing this, we acctually leave the original test set completely isolated. It is never used in this process. When we finally apply our ultimate prediction algorithm to the test set, it will still be an unbiased measurement of what the out of sample accuracy will be.
+
+In this study, we splited the training data into sub training data sets and combined it with caret's K-Fold cross validation mechanism.
 
 ```{r crossValidation}
 set.seed(201701)
